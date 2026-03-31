@@ -1,41 +1,45 @@
-name: 刷步数
+name: Run Script
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '9 1,7,10,12,14,23 * * *'
-  workflow_dispatch:
 
 jobs:
-  build:
+  run:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout codes
-        uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT }} #此处PAT需要申请，教程详见：README
-      - name: Update system and install zsh
-        run: |
-          sudo -E apt-get -qq update
-          sudo -E apt-get install zsh -y
-          
-      - name: 初始化Python
-        uses: actions/setup-python@v6
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          
-      - name: 开始
-        env:
-            CONFIG: ${{ secrets.CONFIG }}
-            AES_KEY: ${{ secrets.AES_KEY }}
+
+      - name: Install dependencies
         run: |
           pip3 install requests pytz pycryptodome
+
+      - name: Run main
+        run: |
           python3 main.py
+        env:
+          CONFIG: ${{ secrets.CONFIG }}
+          AES_KEY: ${{ secrets.AES_KEY }}
 
       - name: persist tokens
         run: |
           git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
-          git add .
-          git commit -m "persist tokens trigger by ${{ github.event_name }}"
-          git push origin master
+          git config user.email "actions@github.com"
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "chore: update tokens [skip ci]"
+            git push
+          else
+            echo "✅ No changes to commit, skip this step"
+            exit 0
+          fi
